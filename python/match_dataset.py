@@ -15,12 +15,6 @@ def parse_timestamp(name):
     except ValueError:
         return None
 
-import os
-import shutil
-import argparse
-import json
-from datetime import datetime
-
 def parse_timestamp_from_filename(filename):
     """
     新しいフォーマットの画像ファイル名からタイムスタンプを抽出
