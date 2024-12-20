@@ -35,7 +35,7 @@ def calculate_offsets(image_dir, event_start_time):
     """
     offsets = []
     for filename in sorted(os.listdir(image_dir)):
-        if filename.endswith('.png'):
+        if filename.endswith('.jpg'):
             image_timestamp = parse_timestamp_from_filename(filename)
             if image_timestamp:
                 offset = (image_timestamp - event_start_time).total_seconds() * 1_000_000  # マイクロ秒単位
