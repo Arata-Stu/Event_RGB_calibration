@@ -6,6 +6,11 @@ cd ~/ros2_ws
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```
 
+## python-venv
+```shell
+
+```
+
 2. run
 ```shell
 ros2 launch calibration_launch calibration.launch.xml 
