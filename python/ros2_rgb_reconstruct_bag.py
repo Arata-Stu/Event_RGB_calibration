@@ -90,6 +90,11 @@ if __name__ == "__main__":
         print(f"Number of Mono images: {len(mono_data)}")
         raise ValueError("The number of RGB images and Mono images must match!")
 
+    # ダウンサンプル: 50Hz -> 4Hz（1/12のデータを抽出）
+    downsample_rate = 12
+    mono_data = mono_data[::downsample_rate]
+    rgb_files = rgb_files[::downsample_rate]
+
     # Initialize ROS 2 node
     rclpy.init()
     node = rclpy.create_node("rosbag2_writer")
@@ -112,7 +117,7 @@ if __name__ == "__main__":
 
             # Create ROS 2 Time object
             mono_stamp_ros = Time(seconds=seconds, nanoseconds=nanoseconds)
-            rgb_stamp_ros = Time(seconds=seconds + 1, nanoseconds=nanoseconds)  # RGBを1秒遅らせる
+            rgb_stamp_ros = Time(seconds=seconds, nanoseconds=nanoseconds+1)  # RGBを1秒遅らせる
 
             # Create and write RGB Image message
             rgb_msg = Image()
