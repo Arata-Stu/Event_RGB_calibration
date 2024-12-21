@@ -45,16 +45,11 @@ metavision_file_to_hdf5 -i /home/arata22/dataset/  -r -p ".*\\.raw"
 5. make ros bag file
 ```shell
 # for reconstructed frames
-python3 ros2_reconstruct_to_bag.py --rosbag_folder ./gen3_with_trigger/bag --image_folder ./gen3_with_trigger/e2calib/ --image_topic /reconstructed_images
-
-## ros2 bag -> ros1 bag
-rosbags-convert reconstruction_ros2
+python3 ros2_reconstruct_to_bag.py --rosbag_folder .//path/to/output/bag_folder --image_folder /path/to/reconstructed_images/ --image_topic /reconstructed_image
 
 
 # for rgb frames
-python3 ros2_rgb_to_bag.py --rosbag_folder ./output_rosbag --image_folder /home/arata22/dataset/20241221_062708/images/ --offset_file /home/arata22/dataset/20241221_062708/image_offsets.txt --image_topic /rgb_image
-
-rosbags-convert rgb_ros2
+python3 ros2_rgb_to_bag.py --rosbag_folder ./output_rosbag --image_folder /path/to/rgb_images/ --offset_file /path/to/image_offsets.txt --image_topic /rgb_image
 
 
 ```
