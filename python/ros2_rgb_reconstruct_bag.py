@@ -111,27 +111,28 @@ if __name__ == "__main__":
             mono_img = cv2.imread(mono_path, cv2.IMREAD_GRAYSCALE)  # Load Mono image
 
             # Create ROS 2 Time object
-            stamp_ros = Time(seconds=seconds, nanoseconds=nanoseconds)
+            mono_stamp_ros = Time(seconds=seconds, nanoseconds=nanoseconds)
+            rgb_stamp_ros = Time(seconds=seconds + 1, nanoseconds=nanoseconds)  # RGBを1秒遅らせる
 
             # Create and write RGB Image message
             rgb_msg = Image()
-            rgb_msg.header.stamp = stamp_ros.to_msg()
+            rgb_msg.header.stamp = rgb_stamp_ros.to_msg()
             rgb_msg.height = rgb_img.shape[0]
             rgb_msg.width = rgb_img.shape[1]
             rgb_msg.step = rgb_img.shape[1] * 3  # RGB = 3 bytes per pixel
             rgb_msg.encoding = "rgb8"
             rgb_msg.data = rgb_img.tobytes()
-            writer.write(args.rgb_topic, serialize_message(rgb_msg), stamp_ros.nanoseconds)
+            writer.write(args.rgb_topic, serialize_message(rgb_msg), rgb_stamp_ros.nanoseconds)
 
             # Create and write Mono Image message
             mono_msg = Image()
-            mono_msg.header.stamp = stamp_ros.to_msg()
+            mono_msg.header.stamp = mono_stamp_ros.to_msg()
             mono_msg.height = mono_img.shape[0]
             mono_msg.width = mono_img.shape[1]
             mono_msg.step = mono_img.shape[1]  # Mono = 1 byte per pixel
             mono_msg.encoding = "mono8"
             mono_msg.data = mono_img.tobytes()
-            writer.write(args.mono_topic, serialize_message(mono_msg), stamp_ros.nanoseconds)
+            writer.write(args.mono_topic, serialize_message(mono_msg), mono_stamp_ros.nanoseconds)
 
             pbar.update(1)
         except Exception as e:
