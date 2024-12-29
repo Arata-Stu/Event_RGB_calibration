@@ -3,9 +3,9 @@
 ## install vcs-tool
 sudo apt install python3-vcstool
 ## install package which is listed in pakages.repos
-vcs import src < packages.repos
+vcs import ros2_ws/src < packages.repos
 
-cd ~/ros2_ws
+cd ./ros2_ws
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```
 

@@ -1,4 +1,3 @@
-
 import argparse
 import glob
 import os
@@ -12,7 +11,6 @@ from sensor_msgs.msg import Image
 from rosbag2_py import SequentialWriter, StorageOptions, ConverterOptions, TopicMetadata
 import tqdm
 
-
 def add_topic(writer, topic_name, message_type, serialization_format="cdr"):
     """
     Add a topic to the rosbag2 writer using TopicMetadata.
@@ -23,7 +21,6 @@ def add_topic(writer, topic_name, message_type, serialization_format="cdr"):
         serialization_format=serialization_format
     )
     writer.create_topic(topic_metadata)
-
 
 def create_bag_writer(output_bag_path, storage_id="sqlite3", serialization_format="cdr"):
     """
@@ -48,7 +45,6 @@ def create_bag_writer(output_bag_path, storage_id="sqlite3", serialization_forma
 
     return writer
 
-
 def extract_timestamps_from_png(file_paths):
     """
     Extract timestamps from PNG filenames in the format '<seconds><nanoseconds>.png'.
@@ -62,7 +58,6 @@ def extract_timestamps_from_png(file_paths):
         timestamps.append((file_path, seconds, nanoseconds))
     return timestamps
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--rosbag_folder", required=True,
@@ -75,6 +70,8 @@ if __name__ == "__main__":
                         help="Name of the topic for RGB images")
     parser.add_argument("--mono_topic", required=True, type=str,
                         help="Name of the topic for mono images")
+    parser.add_argument("--downsample_rate", type=int, default=12,
+                        help="Rate for downsampling the data (default: 12)")
     args = parser.parse_args()
 
     # List and extract timestamps for mono images
@@ -90,8 +87,8 @@ if __name__ == "__main__":
         print(f"Number of Mono images: {len(mono_data)}")
         raise ValueError("The number of RGB images and Mono images must match!")
 
-    # ダウンサンプル: 50Hz -> 4Hz（1/12のデータを抽出）
-    downsample_rate = 12
+    # Downsample data
+    downsample_rate = args.downsample_rate
     mono_data = mono_data[::downsample_rate]
     rgb_files = rgb_files[::downsample_rate]
 
