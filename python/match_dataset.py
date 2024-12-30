@@ -39,20 +39,30 @@ def parse_timestamp_from_filename(filename):
     except (ValueError, IndexError):
         return None
 
-def calculate_offsets(image_dir, start_time):
+def calculate_offsets_with_multiple_cameras(image_dir, start_time):
     """
-    画像ファイルのタイムスタンプから、指定した開始時間を引いてオフセットを計算。
-    オフセットはマイクロ秒単位でテキストに出力する。
+    複数カメラ対応: 画像ファイル（camera_0, camera_1）のタイムスタンプからオフセットを計算。
+    ファイルをソートし、インデックスごとの対応するタイムスタンプの平均値を利用する。
     """
+    timestamps = []
+    for root, _, files in os.walk(image_dir):  # サブディレクトリ (camera_0, camera_1) を含む全ファイルを探索
+        for filename in files:
+            if filename.lower().endswith('.jpg'):
+                image_timestamp = parse_timestamp_from_filename(filename)
+                if image_timestamp:
+                    timestamps.append(image_timestamp)
+    
+    # タイムスタンプ順にソート
+    timestamps.sort()
+    
+    # 平均オフセットを計算
     offsets = []
-    for filename in sorted(os.listdir(image_dir)):
-        # JPGファイルだけを対象
-        if filename.lower().endswith('.jpg'):
-            image_timestamp = parse_timestamp_from_filename(filename)
-            if image_timestamp and start_time:
-                offset = (image_timestamp - start_time).total_seconds() * 1_000_000  # マイクロ秒単位
-                offsets.append(str(int(offset)))  # オフセット値（整数）のみをリストへ追加
+    for timestamp in timestamps:
+        offset = (timestamp - start_time).total_seconds() * 1_000_000  # マイクロ秒単位
+        offsets.append(str(int(offset)))  # オフセット値（整数）をリストへ追加
+    
     return offsets
+
 
 def find_and_process_matching_directories(base_directory, output_directory):
     events_dir = os.path.join(base_directory, 'events')
@@ -63,7 +73,6 @@ def find_and_process_matching_directories(base_directory, output_directory):
         return
     
     # 比較用キーを生成
-    #   ex: '20241229_181002_925622' -> '20241229_18100'
     events_subdirs = {strip_directory_name(name): name for name in os.listdir(events_dir)}
     images_subdirs = {strip_directory_name(name): name for name in os.listdir(images_dir)}
     
@@ -76,12 +85,11 @@ def find_and_process_matching_directories(base_directory, output_directory):
         images_path = os.path.join(images_dir, images_full_name)
         
         # タイムスタンプを解析（UTCマイクロ秒まで）
-        # ※events側はイベント開始時刻だが、今回のオフセットはimages側の時刻を基準とする
         event_start_time = parse_timestamp(events_full_name)
-        rgb_image_start_time = parse_timestamp(images_full_name)  # 画像ディレクトリ名から記録開始時刻を取得
+        rgb_image_start_time = parse_timestamp(images_full_name)
         
-        # 出力先ディレクトリを作成
-        target_dir = os.path.join(output_directory, stripped_name)
+        # 出力先ディレクトリを作成（秒を含める）
+        target_dir = os.path.join(output_directory, events_full_name)  # `events_full_name` を使用
         events_target = os.path.join(target_dir, 'events')
         images_target = os.path.join(target_dir, 'images')
         
@@ -98,7 +106,7 @@ def find_and_process_matching_directories(base_directory, output_directory):
             shutil.move(os.path.join(images_path, file_name), images_target)
         
         # オフセット計算（images ディレクトリの時刻を基準に）
-        offsets = calculate_offsets(images_target, rgb_image_start_time)
+        offsets = calculate_offsets_with_multiple_cameras(images_target, rgb_image_start_time)
         
         # オフセット情報を保存
         offsets_file = os.path.join(target_dir, "image_offsets.txt")
@@ -107,7 +115,7 @@ def find_and_process_matching_directories(base_directory, output_directory):
                 file.write(offset + "\n")
         print(f"オフセット情報を {offsets_file} に保存しました。")
         
-        # メタ情報を保存（イベント開始時刻なども念のため含める）
+        # メタ情報を保存
         metadata = {
             "events_path": events_target,
             "images_path": images_target,
@@ -123,6 +131,7 @@ def find_and_process_matching_directories(base_directory, output_directory):
         # 空になった元のディレクトリを削除
         os.rmdir(events_path)
         os.rmdir(images_path)
+
 
 def main():
     parser = argparse.ArgumentParser(
