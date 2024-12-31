@@ -25,97 +25,117 @@ def parse_timestamp(name):
 
 def parse_timestamp_from_filename(filename):
     """
-    新しいフォーマットの画像ファイル名からタイムスタンプを抽出
-    例: frame_20241219_205444_232943.jpg -> 2024-12-19 20:54:44.232943
+    画像ファイル名からタイムスタンプを抽出。
+    フォーマット: camera_X_YYYYMMDD_HHMMSS_microseconds.jpg
     """
     try:
         base_name = filename.split('.')[0]  # 拡張子を除去
-        # "frame_YYYYMMDD_HHMMSS_microseconds" を想定
-        # 例: frame_20241219_205444_232943
-        _, date, time, microseconds = base_name.split('_')
-        full_datetime = f"{date}_{time}_{microseconds}"
-        timestamp = datetime.strptime(full_datetime, "%Y%m%d_%H%M%S_%f")
-        return timestamp
-    except (ValueError, IndexError):
+        # フォーマット: "camera_X_YYYYMMDD_HHMMSS_microseconds"
+        parts = base_name.split('_')
+        print(f"分割結果: {parts}")  # デバッグ用
+        if len(parts) >= 5:  # 分割後の要素数を確認
+            camera = parts[0] + "_" + parts[1]  # "camera_X" 部分
+            date = parts[2]  # YYYYMMDD
+            time_micro = parts[3] + parts[4]  # HHMMSS_microseconds
+            time = time_micro[:6]  # HHMMSS
+            microseconds = time_micro[6:]  # microseconds
+            print(f"解析中: camera={camera}, date={date}, time_micro={time_micro}")
+            print(f"時間: {time}, マイクロ秒: {microseconds}")
+            # フルタイムスタンプを生成
+            full_datetime = f"{date}_{time}_{microseconds}"
+            print(f"フルタイムスタンプ文字列: {full_datetime}")
+            # datetime オブジェクトに変換
+            timestamp = datetime.strptime(full_datetime, "%Y%m%d_%H%M%S_%f")
+            return timestamp
+        else:
+            print(f"ファイル名が想定形式と一致しません: {filename}")
+            return None
+    except (ValueError, IndexError) as e:
+        print(f"タイムスタンプの解析に失敗: {filename} -> エラー: {e}")
         return None
+
+
+
+
 
 def calculate_offsets_with_multiple_cameras(image_dir, start_time):
     """
-    複数カメラ対応: 画像ファイル（camera_0, camera_1）のタイムスタンプからオフセットを計算。
-    ファイルをソートし、インデックスごとの対応するタイムスタンプの平均値を利用する。
+    複数のカメラで対応するタイムスタンプの平均を利用してオフセットを計算。
     """
-    timestamps = []
-    for root, _, files in os.walk(image_dir):  # サブディレクトリ (camera_0, camera_1) を含む全ファイルを探索
+    camera_timestamps = {}
+
+    # 各カメラのタイムスタンプを収集
+    for root, _, files in os.walk(image_dir):
         for filename in files:
             if filename.lower().endswith('.jpg'):
                 image_timestamp = parse_timestamp_from_filename(filename)
                 if image_timestamp:
-                    timestamps.append(image_timestamp)
-    
-    # タイムスタンプ順にソート
-    timestamps.sort()
-    
-    # 平均オフセットを計算
+                    camera_key = filename.split('_')[0] + '_' + filename.split('_')[1]  # 例: camera_0
+                    if camera_key not in camera_timestamps:
+                        camera_timestamps[camera_key] = []
+                    camera_timestamps[camera_key].append(image_timestamp)
+
+    # 全てのカメラのタイムスタンプをソート
+    for key in camera_timestamps:
+        camera_timestamps[key].sort()
+
+    # 各カメラのタイムスタンプを平均化
     offsets = []
-    for timestamp in timestamps:
-        offset = (timestamp - start_time).total_seconds() * 1_000_000  # マイクロ秒単位
-        offsets.append(str(int(offset)))  # オフセット値（整数）をリストへ追加
-    
+    min_length = min(len(timestamps) for timestamps in camera_timestamps.values())
+    for i in range(min_length):
+        avg_timestamp_seconds = sum(
+            camera_timestamps[key][i].timestamp() for key in camera_timestamps
+        ) / len(camera_timestamps)
+        avg_timestamp = datetime.fromtimestamp(avg_timestamp_seconds)
+        offset = (avg_timestamp - start_time).total_seconds() * 1_000_000  # マイクロ秒単位
+        offsets.append(str(int(offset)))
+
     return offsets
+
+
 
 
 def find_and_process_matching_directories(base_directory, output_directory):
     events_dir = os.path.join(base_directory, 'events')
     images_dir = os.path.join(base_directory, 'images')
-    
+
     if not os.path.exists(events_dir) or not os.path.exists(images_dir):
         print("指定されたディレクトリに 'events' または 'images' が存在しません。")
         return
-    
-    # 比較用キーを生成
+
     events_subdirs = {strip_directory_name(name): name for name in os.listdir(events_dir)}
     images_subdirs = {strip_directory_name(name): name for name in os.listdir(images_dir)}
-    
-    # 両者でキーが一致するディレクトリを処理
+
     for stripped_name in events_subdirs.keys() & images_subdirs.keys():
         events_full_name = events_subdirs[stripped_name]
         images_full_name = images_subdirs[stripped_name]
-        
+
         events_path = os.path.join(events_dir, events_full_name)
         images_path = os.path.join(images_dir, images_full_name)
-        
-        # タイムスタンプを解析（UTCマイクロ秒まで）
+
         event_start_time = parse_timestamp(events_full_name)
         rgb_image_start_time = parse_timestamp(images_full_name)
-        
-        # 出力先ディレクトリを作成（秒を含める）
-        target_dir = os.path.join(output_directory, events_full_name)  # `events_full_name` を使用
+
+        target_dir = os.path.join(output_directory, events_full_name)
         events_target = os.path.join(target_dir, 'events')
         images_target = os.path.join(target_dir, 'images')
-        
+
         os.makedirs(events_target, exist_ok=True)
         os.makedirs(images_target, exist_ok=True)
-        
-        # ファイルを移動
-        print(f"移動中: {events_path}/* -> {events_target}")
+
         for file_name in os.listdir(events_path):
             shutil.move(os.path.join(events_path, file_name), events_target)
-        
-        print(f"移動中: {images_path}/* -> {images_target}")
+
         for file_name in os.listdir(images_path):
             shutil.move(os.path.join(images_path, file_name), images_target)
-        
-        # オフセット計算（images ディレクトリの時刻を基準に）
+
         offsets = calculate_offsets_with_multiple_cameras(images_target, rgb_image_start_time)
-        
-        # オフセット情報を保存
+
         offsets_file = os.path.join(target_dir, "image_offsets.txt")
         with open(offsets_file, "w", encoding="utf-8") as file:
             for offset in offsets:
                 file.write(offset + "\n")
-        print(f"オフセット情報を {offsets_file} に保存しました。")
-        
-        # メタ情報を保存
+
         metadata = {
             "events_path": events_target,
             "images_path": images_target,
@@ -126,11 +146,10 @@ def find_and_process_matching_directories(base_directory, output_directory):
         metadata_file = os.path.join(target_dir, "metadata.json")
         with open(metadata_file, "w", encoding="utf-8") as meta_file:
             json.dump(metadata, meta_file, indent=4, ensure_ascii=False)
-        print(f"メタ情報を {metadata_file} に保存しました。")
-        
-        # 空になった元のディレクトリを削除
+
         os.rmdir(events_path)
         os.rmdir(images_path)
+
 
 
 def main():
